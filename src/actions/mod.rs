@@ -80,6 +80,7 @@ pub fn jump(
         }
 
         if output.grounded {
+            gravity = 0.;
             jump_state.available = true;
         }
 

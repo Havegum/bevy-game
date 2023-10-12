@@ -119,7 +119,7 @@ pub fn setup(
         })
         .insert(active_animation)
         .insert(KinematicCharacterController {
-            offset: CharacterLength::Absolute(0.20),
+            offset: CharacterLength::Absolute(0.40),
             ..default()
         })
         .insert(JumpState::from(30.))
