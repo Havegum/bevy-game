@@ -58,10 +58,6 @@ pub fn jump(
         Without<Condition<Locked>>,
     >,
     time_step: Res<Time>,
-    // TODO: add Without<Locked> here.
-    // locked is a status effect that prevents the entity from moving.
-    // it can be applied by an enemy effect, or for handling things like
-    // attack anticipation, recovery, etc.
 ) {
     let gravity: f32 = 9.81 * time_step.delta_seconds();
 
@@ -111,7 +107,6 @@ pub fn move_system(
             &mut KinematicCharacterController,
             &mut Transform,
             Option<&mut ActiveAnimation>,
-            Option<&Animations>,
         ),
         Without<Condition<Locked>>,
     >,
@@ -120,9 +115,7 @@ pub fn move_system(
     let delta = time_step.delta_seconds() * 10.;
     let speed = 0.5 * delta;
 
-    for (action_state, mut controller, mut transform, active_animation, animations) in
-        agent_query.iter_mut()
-    {
+    for (action_state, mut controller, mut transform, active_animation) in &mut agent_query {
         let mut translation_delta = Vec3::ZERO;
 
         let rotation = Quat::from_rotation_y(-PI * 1.75);
@@ -165,15 +158,15 @@ pub fn move_system(
         }
 
         if let Some(mut active_animation) = active_animation {
-            if let Some(animations) = animations {
-                let animation = active_animation.get();
-                if is_moving {
-                    if animation != animations.run {
-                        active_animation.set(animations.run.clone_weak());
-                    }
-                } else if animation == animations.run {
-                    active_animation.set(animations.idle.clone_weak());
+            let animation = active_animation.get();
+            if is_moving {
+                if animation != active_animation.animations.run {
+                    let animation = active_animation.animations.run.clone_weak();
+                    active_animation.set(animation);
                 }
+            } else if animation == active_animation.animations.run {
+                let animation = active_animation.animations.idle.clone_weak();
+                active_animation.set(animation);
             }
         }
     }
@@ -187,23 +180,20 @@ pub fn attack_system(
         &mut KinematicCharacterController,
         &mut Transform,
         Option<&mut ActiveAnimation>,
-        Option<&Animations>,
     )>,
     time_step: Res<Time>,
 ) {
-    for (entity, action_state, mut controller, mut transform, active_animation, animations) in
-        agent_query.iter_mut()
+    for (entity, action_state, mut controller, mut transform, active_animation) in &mut agent_query
     {
         if action_state.pressed(Action::Attack) {
             if let Some(mut active_animation) = active_animation {
-                if let Some(animations) = animations {
-                    active_animation
-                        .set(animations.attack.clone_weak())
-                        .then(animations.idle.clone_weak());
-                    commands
-                        .entity(entity)
-                        .insert(Condition::<Locked>::new(Duration::from_millis(600)));
-                }
+                let attack = active_animation.animations.attack.clone_weak();
+                let idle = active_animation.animations.idle.clone_weak();
+                active_animation.set(attack).then(idle);
+
+                commands
+                    .entity(entity)
+                    .insert(Condition::<Locked>::new(Duration::from_millis(600)));
             }
         }
     }

@@ -91,13 +91,13 @@ pub fn spawn_mob(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 pub fn wanderlust_scorer_system(mut query: Query<&mut Score, With<Wanderlust>>) {
-    for mut score in query.iter_mut() {
+    for mut score in &mut query {
         score.set(0.1);
     }
 }
 
 pub fn wandering_action_system(mut query: Query<(&Actor, &mut BBActionState), With<Wander>>) {
-    for (Actor(_actor), mut state) in query.iter_mut() {
+    for (Actor(_actor), mut state) in &mut query {
         match *state {
             BBActionState::Requested => {
                 // TODO: set target, timer, and move there
@@ -121,16 +121,14 @@ pub fn chase_action_system(
     )>,
     mut query: Query<(&Actor, &mut BBActionState), With<Chase>>,
 ) {
-    for (Actor(actor), mut state) in query.iter_mut() {
+    for (Actor(actor), mut state) in &mut query {
         if let Ok((mut action_state, chaser, self_transform)) = action_states.get_mut(*actor) {
-            let target = match chaser.target {
-                Some(target) => target,
-                None => continue,
+            let Some(target) = chaser.target else {
+                continue;
             };
 
-            let target_transform = match transform.get(target) {
-                Ok(transform) => transform,
-                Err(_) => continue,
+            let Ok(target_transform) = transform.get(target) else {
+                continue;
             };
 
             let vector = (target_transform.translation - self_transform.translation)
@@ -168,7 +166,7 @@ pub fn alert_scorer_system(
 ) {
     let chase_threshold = 8.0;
 
-    for (Actor(actor), mut score) in query.iter_mut() {
+    for (Actor(actor), mut score) in &mut query {
         let mut nearest_distance = f32::MAX;
         let mut nearest_entity = None;
 

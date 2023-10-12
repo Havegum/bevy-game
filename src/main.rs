@@ -76,7 +76,6 @@ fn main() {
             Update,
             (
                 animate_upon_load,
-                animate_upon_change,
                 move_system,
                 focus_camera,
                 mouse_button_events.before(attack_system),

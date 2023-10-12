@@ -11,24 +11,36 @@ pub struct Animations {
 
 #[derive(Component)]
 pub struct ActiveAnimation {
-    animation: Handle<AnimationClip>,
+    pub animations: Animations,
+    active: Handle<AnimationClip>,
     transition: Duration,
     repeating: bool,
     next: Option<Handle<AnimationClip>>,
+    timer: Option<Timer>,
+    changed: bool,
 }
 
 impl ActiveAnimation {
-    pub fn new(animation: Handle<AnimationClip>) -> Self {
+    pub fn new(animations: Animations) -> Self {
         Self {
-            animation,
+            active: animations.idle.clone_weak(),
+            animations,
             transition: Duration::from_millis(250),
             repeating: true,
             next: None,
+            timer: None,
+            changed: false,
         }
     }
 
     pub fn get(&self) -> Handle<AnimationClip> {
-        self.animation.clone_weak()
+        self.active.clone_weak()
+    }
+
+    pub fn next(&mut self) -> &mut Self {
+        let next = self.next.take().unwrap();
+        self.set(next);
+        self
     }
 
     pub fn transition_duration(&self) -> Duration {
@@ -36,7 +48,9 @@ impl ActiveAnimation {
     }
 
     pub fn set(&mut self, animation: Handle<AnimationClip>) -> &mut Self {
-        self.animation = animation;
+        self.active = animation;
+        self.repeating = true;
+        self.changed = true;
         self
     }
 
@@ -46,23 +60,55 @@ impl ActiveAnimation {
         self
     }
 
-    pub fn with_duration(&mut self, duration: Duration) -> &mut Self {
-        self.transition = duration;
-        self
-    }
+    pub fn queue_system(
+        mut animation_query: Query<(&mut ActiveAnimation, &Children)>,
+        children_query: Query<&Children>,
+        animations: Res<Assets<AnimationClip>>,
+        mut player_query: Query<&mut AnimationPlayer>,
+        time: Res<Time>,
+    ) {
+        for (mut animation, children) in &mut animation_query {
+            if animation.next.is_some() {
+                if let Some(timer) = animation.timer.as_mut() {
+                    timer.tick(time.delta());
 
-    pub fn queue_system(mut query: Query<&mut ActiveAnimation>) {
-        // TODO: implement this.
-        // I'll probably move out this bit to like a "Action"-component
-        // Then that component can queue up the next action — idle, probably – as well
-        // as handling whether the action is cancelable or not.
-        // for mut active_animation in &mut query {
-        //     if active_animation.next.is_some() {
-        //         let next = active_animation.next.take().unwrap();
-        //         active_animation.animation = next;
-        //         active_animation.repeating = true;
-        //     }
-        // }
+                    if timer.finished() {
+                        animation.timer = None;
+                        let handle = animation.next.take().unwrap();
+                        animation.set(handle);
+                    }
+                } else if let Some(clip) = animations.get(&animation.get()) {
+                    animation.timer = Some(Timer::from_seconds(clip.duration(), TimerMode::Once));
+                }
+            } else if !animation.changed {
+                continue;
+            } else {
+                animation.changed = false;
+            }
+
+            for child in children {
+                for child in children_query.get(*child).unwrap() {
+                    if let Ok(mut player) = player_query.get_mut(*child) {
+                        if animation.transition > Duration::ZERO {
+                            player.play_with_transition(
+                                animation.get(),
+                                animation.transition_duration(),
+                            );
+                        } else {
+                            player.play(animation.get());
+                        }
+
+                        if animation.repeating {
+                            player.repeat();
+                        } else {
+                            player.stop_repeating();
+                        }
+
+                        break;
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -84,21 +130,31 @@ pub fn animate_upon_load(
     }
 }
 
-pub fn animate_upon_change(
-    animation_query: Query<(&ActiveAnimation, &Children), Changed<ActiveAnimation>>,
-    children_query: Query<&Children>,
-    mut player_query: Query<&mut AnimationPlayer>,
-) {
-    for (animation, children) in animation_query.iter() {
-        for child in children {
-            for child in children_query.get(*child).unwrap() {
-                if let Ok(mut player) = player_query.get_mut(*child) {
-                    player
-                        .play_with_transition(animation.get(), Duration::from_millis(20))
-                        .repeat();
-                    break;
-                }
-            }
-        }
-    }
-}
+// pub fn animate_upon_change(
+//     animation_query: Query<(&ActiveAnimation, &Children), Changed<ActiveAnimation>>,
+//     children_query: Query<&Children>,
+//     mut player_query: Query<&mut AnimationPlayer>,
+// ) {
+//     for (animation, children) in animation_query.iter() {
+//         for child in children {
+//             for child in children_query.get(*child).unwrap() {
+//                 if let Ok(mut player) = player_query.get_mut(*child) {
+//                     if animation.transition > Duration::ZERO {
+//                         player
+//                             .play_with_transition(animation.get(), animation.transition_duration());
+//                     } else {
+//                         player.play(animation.get());
+//                     }
+
+//                     if animation.repeating {
+//                         player.repeat();
+//                     } else {
+//                         player.stop_repeating();
+//                     }
+
+//                     break;
+//                 }
+//             }
+//         }
+//     }
+// }

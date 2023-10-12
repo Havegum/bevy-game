@@ -91,12 +91,15 @@ pub fn setup(
         assets_gltf.get(&models.0).unwrap().named_meshes.keys()
     );
 
-    let idle_animation = assets_gltf.get(&models.0).unwrap().named_animations["ivory_idle"].clone();
+    let named_animations = &assets_gltf.get(&models.0).unwrap().named_animations;
+
     let animations = Animations {
-        idle: idle_animation.clone(),
-        run: assets_gltf.get(&models.0).unwrap().named_animations["ivory_run"].clone(),
-        attack: assets_gltf.get(&models.0).unwrap().named_animations["ivory_slash"].clone(),
+        idle: named_animations["ivory_idle"].clone(),
+        run: named_animations["ivory_run"].clone(),
+        attack: named_animations["ivory_slash"].clone(),
     };
+
+    let active_animation = ActiveAnimation::new(animations);
 
     // spawn the game character
     let entity = commands
@@ -114,8 +117,7 @@ pub fn setup(
             scene: assets_gltf.get(&models.0).unwrap().named_scenes["Run"].clone(),
             ..default()
         })
-        .insert(animations)
-        .insert(ActiveAnimation::new(idle_animation.clone_weak()))
+        .insert(active_animation)
         .insert(KinematicCharacterController {
             offset: CharacterLength::Absolute(0.20),
             ..default()
