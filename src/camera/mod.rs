@@ -15,7 +15,7 @@ pub fn setup_cameras(mut commands: Commands, mut game: ResMut<Game>) {
 }
 
 /// change the focus of the camera
-pub fn focus_camera(
+pub fn focus_system(
     time: Res<Time>,
     mut game: ResMut<Game>,
     mut transforms: ParamSet<(Query<&mut Transform, With<Camera3d>>, Query<&Transform>)>,

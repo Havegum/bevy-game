@@ -39,6 +39,19 @@ impl<T> Condition<T> {
             phantom: std::marker::PhantomData,
         }
     }
+
+    pub fn system(mut commands: Commands, mut query: Query<(Entity, &mut T)>, time: Res<Time>)
+    where
+        T: ConditionTrait + Component,
+    {
+        for (entity, mut condition) in &mut query {
+            condition.tick(time.delta());
+
+            if condition.stack() == 0 {
+                commands.entity(entity).remove::<T>();
+            }
+        }
+    }
 }
 
 impl<T> ConditionTrait for Condition<T> {
@@ -62,22 +75,11 @@ impl<T> ConditionTrait for Condition<T> {
     }
 }
 
-pub fn conditions_system<Condition>(
-    mut commands: Commands,
-    mut query: Query<(Entity, &mut Condition)>,
-    time: Res<Time>,
-) where
-    Condition: ConditionTrait + Component,
-{
-    for (entity, mut condition) in &mut query {
-        condition.tick(time.delta());
-
-        if condition.stack() == 0 {
-            commands.entity(entity).remove::<Condition>();
-        }
-    }
-}
-
 pub struct Locked;
+
+#[derive(Clone)]
+pub enum ConditionType {
+    Locked,
+}
 
 // Se: https://docs.rs/bevy/latest/bevy/ecs/query/trait.WorldQuery.html#adding-methods-to-query-items

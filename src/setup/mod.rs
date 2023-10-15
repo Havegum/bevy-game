@@ -119,14 +119,19 @@ pub fn setup(
         })
         .insert(active_animation)
         .insert(KinematicCharacterController {
-            offset: CharacterLength::Absolute(0.40),
+            offset: CharacterLength::Absolute(0.05),
+            autostep: Some(CharacterAutostep {
+                max_height: CharacterLength::Absolute(0.5),
+                min_width: CharacterLength::Absolute(0.2),
+                include_dynamic_bodies: true,
+            }),
             ..default()
         })
         .insert(JumpState::from(30.))
         .insert(Faction(0))
         .insert(RigidBody::KinematicPositionBased)
         .insert(Collider::capsule(
-            Vec3::new(0.0, 0.28, 0.0),
+            Vec3::new(0.0, 0.24, 0.0),
             Vec3::new(0.0, 1.4, 0.0),
             0.26,
         ))

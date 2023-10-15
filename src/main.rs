@@ -1,15 +1,10 @@
-#![warn(
-    clippy::all,
-    // clippy::restriction,
-    clippy::pedantic,
-    // clippy::nursery,
-    // clippy::cargo
-  )]
+#![warn(clippy::all, clippy::pedantic)]
 #![allow(
     clippy::needless_pass_by_value,
     clippy::cast_possible_truncation,
     clippy::cast_precision_loss,
-    clippy::type_complexity
+    clippy::type_complexity,
+    clippy::wildcard_imports
 )]
 
 use bevy::prelude::*;
@@ -48,7 +43,7 @@ pub enum GameState {
     GameOver,
 }
 
-#[derive(Component)]
+#[derive(Component, Clone, Default)]
 pub struct Faction(u32);
 
 fn main() {
@@ -68,22 +63,22 @@ fn main() {
         .init_resource::<Game>()
         .add_systems(OnEnter(GameState::LoadingGame), load_gltf)
         .add_systems(Startup, setup_cameras)
-        .add_systems(
-            OnEnter(GameState::Playing),
-            (setup, setup_scene /*spawn_mob*/),
-        )
+        .add_systems(OnEnter(GameState::Playing), (setup, setup_scene, spawn_mob))
         .add_systems(
             Update,
             (
                 animate_upon_load,
                 move_system,
-                focus_camera,
+                camera::focus_system,
                 mouse_button_events.before(attack_system),
                 attack_system,
                 jump,
+                gravity_system,
                 cursor_system,
-                conditions_system::<Condition<Locked>>,
+                Condition::<Condition<Locked>>::system,
                 ActiveAnimation::queue_system,
+                attack::LifeSpan::system,
+                attack::PendingAttack::system,
             )
                 .run_if(in_state(GameState::Playing)),
         )

@@ -74,9 +74,8 @@ pub fn mouse_button_events(
                 let mut intersection = intersection;
                 intersection.y = transform.translation.y;
 
-                let vector = intersection.xy() - transform.translation.xy();
+                let vector = intersection.xz() - transform.translation.xz();
 
-                info!("input attack!");
                 action_state.set_action_data(
                     Action::Attack,
                     ActionData {

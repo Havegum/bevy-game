@@ -4,10 +4,15 @@ use bevy_rapier3d::prelude::*;
 use leafwing_input_manager::prelude::*;
 use std::{f32::consts::PI, time::Duration};
 
-use crate::animation::{ActiveAnimation, Animations};
+use crate::animation::ActiveAnimation;
 
 pub mod conditions;
 use conditions::{Condition, Locked};
+
+pub mod attack;
+pub use attack::*;
+
+use crate::Faction;
 
 #[derive(Actionlike, PartialEq, Clone, Copy, Debug, Reflect)]
 pub enum Action {
@@ -59,10 +64,7 @@ pub fn jump(
     >,
     time_step: Res<Time>,
 ) {
-    let gravity: f32 = 9.81 * time_step.delta_seconds();
-
     for (action_state, mut transform, mut jump_state, output) in &mut transforms {
-        let mut gravity = gravity;
         let mut translation = transform.translation.unwrap_or_default();
 
         if jump_state.i > 0.0 {
@@ -71,16 +73,12 @@ pub fn jump(
 
         let pressed_jump = action_state.pressed(Action::Jump);
 
-        if pressed_jump {
-            gravity *= 0.8;
-            if jump_state.available {
-                jump_state.i = 1.0;
-                jump_state.available = false;
-            }
+        if pressed_jump && jump_state.available {
+            jump_state.i = 1.0;
+            jump_state.available = false;
         }
 
         if output.grounded {
-            gravity = 0.;
             jump_state.available = true;
         }
 
@@ -92,7 +90,26 @@ pub fn jump(
             translation.y += jump_strength;
         }
 
-        translation.y -= gravity;
+        transform.translation = Some(translation);
+    }
+}
+
+pub fn gravity_system(
+    mut transforms: Query<(
+        &mut KinematicCharacterController,
+        &KinematicCharacterControllerOutput,
+    )>,
+    time_step: Res<Time>,
+) {
+    let gravity: f32 = 9.81 * time_step.delta_seconds();
+
+    for (mut transform, output) in &mut transforms {
+        if output.grounded {
+            continue;
+        }
+        let gravity = gravity;
+        let mut translation = transform.translation.unwrap_or_default();
+        translation -= Vec3::Y * gravity;
         transform.translation = Some(translation);
     }
 }
@@ -161,7 +178,7 @@ pub fn move_system(
         if let Some(mut active_animation) = active_animation {
             let animation = active_animation.get();
             if is_moving {
-                if animation != active_animation.animations.run {
+                if animation == active_animation.animations.idle {
                     let animation = active_animation.animations.run.clone_weak();
                     active_animation.set(animation);
                 }
@@ -175,18 +192,24 @@ pub fn move_system(
 
 pub fn attack_system(
     mut commands: Commands,
-    mut agent_query: Query<(
-        Entity,
-        &ActionState<Action>,
-        &mut KinematicCharacterController,
-        &mut Transform,
-        Option<&mut ActiveAnimation>,
-    )>,
-    time_step: Res<Time>,
+    mut agent_query: Query<
+        (
+            Entity,
+            &ActionState<Action>,
+            &mut Transform,
+            Option<&mut ActiveAnimation>,
+        ),
+        (Without<Condition<Locked>>, Without<PendingAttack>),
+    >,
 ) {
-    for (entity, action_state, mut controller, mut transform, active_animation) in &mut agent_query
-    {
+    for (entity, action_state, mut transform, active_animation) in &mut agent_query {
         if action_state.pressed(Action::Attack) {
+            let data = action_state.action_data(Action::Attack);
+            let axis = data.axis_pair.unwrap_or_default();
+            let direction = Vec3::new(axis.x(), 0., axis.y()).normalize_or_zero();
+
+            transform.rotation = crate::utils::look_to(direction);
+
             if let Some(mut active_animation) = active_animation {
                 let attack = active_animation.animations.attack.clone_weak();
                 let idle = active_animation.animations.idle.clone_weak();
@@ -195,6 +218,25 @@ pub fn attack_system(
                 commands
                     .entity(entity)
                     .insert(Condition::<Locked>::new(Duration::from_millis(600)));
+
+                let attack_distance = 1.0;
+                let attack_transform = *transform
+                    * Transform::from_translation(-Vec3::Z * attack_distance + Vec3::Y * 0.75);
+
+                let attack_delay = Duration::from_millis(200);
+
+                let pending_attack = PendingAttack::new(
+                    AttackBundle::new(
+                        Effect::new(1.0, vec![], Vec3::ZERO),
+                        Collider::cuboid(0.5, 0.5, 0.5),
+                        Faction(0),
+                        Duration::from_millis(100),
+                        attack_transform,
+                    ),
+                    attack_delay,
+                );
+
+                commands.get_entity(entity).unwrap().insert(pending_attack);
             }
         }
     }

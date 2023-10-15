@@ -74,8 +74,7 @@ impl ActiveAnimation {
 
                     if timer.finished() {
                         animation.timer = None;
-                        let handle = animation.next.take().unwrap();
-                        animation.set(handle);
+                        animation.next();
                     }
                 } else if let Some(clip) = animations.get(&animation.get()) {
                     animation.timer = Some(Timer::from_seconds(clip.duration(), TimerMode::Once));

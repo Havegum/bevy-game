@@ -19,6 +19,9 @@ use leafwing_input_manager::{
     InputManagerBundle,
 };
 
+pub mod health;
+pub use health::*;
+
 #[derive(Debug, Clone, Component, ScorerBuilder)]
 pub struct Wanderlust;
 
@@ -73,7 +76,7 @@ pub fn spawn_mob(mut commands: Commands, asset_server: Res<AssetServer>) {
                 translation: Vec3::new(5., 1., 7.),
                 ..default()
             },
-            scene: asset_server.load("models/AlienCake/enemy.glb#Scene0"),
+            scene: asset_server.load("models/world/enemy.glb#Scene0"),
             ..default()
         })
         .insert(InputManagerBundle::<crate::actions::Action>::default())

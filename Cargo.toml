@@ -10,3 +10,4 @@ iyes_progress = { version = "0.9", features = ["assets"] }
 bevy_rapier3d = "0.22.0"
 big-brain = "0.18.0"
 rand = "0.8.5"
+bevy_health_bar3d = "1.4.4"
